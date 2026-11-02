@@ -56,3 +56,13 @@ positional rule, learnable without composition.
 Lesson: the second data change I made was also insufficient; the metric
 again reported a clean induction head where none could exist. Run 3 varies
 the copy length so the required offset is not constant.
+
+## Run 3 — variable copy length (induction head found)
+
+Data: [BOS] + L random + same L, L uniform in 20..50, BOS-padded to 101.
+Loss: plateau ~4.8 (padding predictable), drop at 775–900, floor ~2.45
+(≈ 0.35 × ln 1000: only the first copy is unpredictable).
+Best head L1H2: 0.05 (750), 0.13 (775), 0.35 (800), 0.63 (825), 0.83 (850),
+0.92 (900), ~0.96 thereafter. Layer 1, as composition requires.
+Transition step across runs: 250 → 475 → ~825 as each positional shortcut
+was removed.
