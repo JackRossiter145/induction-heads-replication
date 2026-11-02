@@ -4,17 +4,22 @@ from train import cfg, make_batch, SEQ, device
 from transformer_lens import HookedTransformer
 
 torch.manual_seed(1)
-eval_tokens = make_batch(256).to(device)     # fixed eval batch
+eval_tokens, eval_offsets = make_batch(256)   # fixed eval batch
+eval_tokens = eval_tokens.to(device)
 model = HookedTransformer(cfg).to(device)
 
 def prefix_matching(model):
     _, cache = model.run_with_cache(eval_tokens, return_type=None)
     scores = {}
-    q = torch.arange(SEQ + 1, 2 * SEQ)       # queries in repeated half
-    k = q - SEQ + 1                          # token after earlier copy
+    b = torch.arange(256)
     for layer in range(cfg.n_layers):
-        pattern = cache["pattern", layer]    # [batch, head, q, k]
-        attn = pattern[:, :, q, k]           # [batch, head, q]
+        pattern = cache["pattern", layer].cpu()   # [batch, head, q, k]
+        vals = []
+        for j in range(1, SEQ):                   # j-th token of second copy
+            q = 1 + eval_offsets + SEQ + j        # per-sequence query position
+            k = q - SEQ + 1
+            vals.append(pattern[b, :, q, k])      # [batch, head]
+        attn = torch.stack(vals, dim=-1)          # [batch, head, q]
         for h in range(cfg.n_heads):
             scores[f"L{layer}H{h}"] = attn[:, h].mean().item()
     return scores

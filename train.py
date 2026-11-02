@@ -14,9 +14,8 @@ VOCAB, SEQ, BOS = 1000, 50, 1000          # tokens 0..999, BOS = 1000
 STEPS, BATCH, CKPT_EVERY = 3000, 64, 25
 
 cfg = HookedTransformerConfig(
-
     n_layers=2, d_model=128, n_heads=4, d_head=32,
-    n_ctx=2*SEQ + 1, d_vocab=VOCAB + 1,
+    n_ctx=2*SEQ + 21, d_vocab=VOCAB + 1,
     attn_only=True, act_fn=None,
     positional_embedding_type="standard", seed=0,
 )
@@ -24,16 +23,23 @@ model = HookedTransformer(cfg)
 model.to(device)
 
 def make_batch(n):
-    first = torch.randint(0, VOCAB, (n, SEQ))
-    bos = torch.full((n, 1), BOS)
-    return torch.cat([bos, first, first], dim=1)   # [BOS] + 50 random + same 50
+    seqs, offsets = [], []
+    for _ in range(n):
+        p = torch.randint(0, 20, (1,)).item()
+        pre = torch.randint(0, VOCAB, (p,))
+        a = torch.randint(0, VOCAB, (SEQ,))
+        s = torch.cat([torch.tensor([BOS]), pre, a, a])
+        seqs.append(torch.nn.functional.pad(s, (0, cfg.n_ctx - len(s)), value=BOS))
+        offsets.append(p)
+    return torch.stack(seqs), torch.tensor(offsets)
 
 if __name__ == "__main__":
     opt = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=0.01)
     os.makedirs("checkpoints", exist_ok=True)
 
     for step in range(STEPS + 1):
-        tokens = make_batch(BATCH).to(device)
+        tokens, _ = make_batch(BATCH)
+        tokens = tokens.to(device)
         loss = model(tokens, return_type="loss")
         opt.zero_grad(); loss.backward(); opt.step()
         if step % CKPT_EVERY == 0:
