@@ -1,5 +1,3 @@
-what was the text for the README again
-09:38
 # Induction heads replication
 
 ## The figure
@@ -22,6 +20,7 @@ what was the text for the README again
    (both in the repeated half). Olsson's co-occurrence claim.
 
 **Plot:** x = training step; y = best-head prefix-matching score (left axis)
+
 and ICL score (right axis). Success = a sharp sigmoid in (1), with (2) dropping
 at the same step.
 
