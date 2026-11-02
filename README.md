@@ -12,7 +12,7 @@
 
 **Metrics (per checkpoint, fixed eval batch of 256 sequences):**
 1. *Prefix-matching score* per head: mean attention from token t (second half) to the token following its earlier copy for j = 1..19 (positions all sequences share; j=0 excluded). Plot the best head across layers.
-2. *In-context learning score* per checkpoint: mean loss at late positions of the second copy (j = 15..19) minus mean loss at early positions (j = 1..5), where j indexes tokens of the second copy and L varies per sequence. Negative values mean the model predicts better with more context; Olsson et al. report this drops sharply at the same step the induction head forms. **(not yet implemented)**
+2. *In-context learning score* per checkpoint: mean loss at late positions of the second copy (j = 15..19) minus mean loss at early positions (j = 1..5), where j indexes tokens of the second copy and L varies per sequence. Negative values mean the model predicts better with more context; Olsson et al. report this drops sharply at the same step the induction head forms. **(implemented)**
 
 **Plot:** x = training step; y = best-head prefix-matching score (left axis) and ICL score (right axis). Success = a sharp sigmoid in (1), with (2) dropping at the same step.
 
@@ -61,15 +61,26 @@ Best head L1H2: 0.05 (750), 0.13 (775), 0.35 (800), 0.63 (825), 0.83 (850),
 Transition step across runs: 250 → 475 → ~825 as each positional shortcut
 was removed.
 
+### ICL score
+ICL score: ~0 before step 700, −0.21 (725), −0.53 (775), −0.36 (800–825), −0.29 (850), −0.08 (875), back to ~0 by step 1000 and remains flat for the rest of the run.
+
+Co-occurrence: starts slightly before the rise in prefix-matching score (725 vs 750/775) but both peak in the same 775–850 window.
+
+Returning to zero: ICL score returns to zero after induction heads form because every second-copy token is predictable from j=1 and so loss for earlier and later tokens become similar and hence their difference approaches 0. 
+
+Lesson: The score being zero before and after the spike are for very different reasons. In the first case the model is equally 'bad' at predicting the tokens and in the second the model is equally 'good' at predicting the tokens but our metric treats the cases as the same. So, our chosen metric is able to detect the transition, not the capability. On natural text later positions keep gaining from more context, so the late–early gap persists; here one prior occurrence is all the useful context there is, so the gap closes as soon as the head works.
+
+
 ## Reproduce
 
 Tested on macOS (Intel), Python 3.11, torch 2.2.2 (last Intel-Mac build —
-hence the NumPy 1.x pins in requirements.txt).
+hence the NumPy 1.x pins in `requirements.txt`).
 
     conda create -n induction python=3.11 && conda activate induction
     pip install -r requirements.txt
     python -u train.py | tee results/run3_loss.txt
-    python -u score.py | tee results/run3_scores.txt
+    python -u score.py | tee results/run3_scores_log.txt
 
-Seeds are fixed (train 0, eval 1); the transition step may still vary
-slightly across hardware.
+Runs 1–2 data files are `results/run{1,2}_prefix_scores.json` (prefix-matching only); Run 3 is `results/run3_scores.json` (prefix-matching + ICL), written directly by `score.py`.
+
+Seeds are fixed (train 0, eval 1). On the same machine results match to ~4 decimal places (MPS is not bit-exact); the transition step may vary slightly across hardware.
