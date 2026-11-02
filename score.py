@@ -3,6 +3,8 @@ import torch, glob, re, json
 from train import cfg, make_batch, SEQ, device
 from transformer_lens import HookedTransformer
 
+RUN = "run3"
+
 torch.manual_seed(1)
 eval_tokens, eval_lens = make_batch(256)   # fixed eval batch
 eval_tokens = eval_tokens.to(device)
@@ -24,11 +26,28 @@ def prefix_matching(model):
             scores[f"L{layer}H{h}"] = attn[:, h].mean().item()
     return scores
 
+def icl_score(model):
+    loss_per_token = model(eval_tokens, return_type="loss", loss_per_token=True).cpu()     # [batch, n_ctx - 1]
+    b = torch.arange(256)
+    earlier_tokens_loss = []
+    later_tokens_loss = []
+    for j in range(1, 6):
+        p = eval_lens + j
+        earlier_tokens_loss.append(loss_per_token[b, p])
+    for j in range(15, 20):
+        p = eval_lens + j
+        later_tokens_loss.append(loss_per_token[b, p])
+    earlier_tokens_mean_loss = torch.stack(earlier_tokens_loss).mean()
+    later_tokens_mean_loss = torch.stack(later_tokens_loss).mean()
+    return (later_tokens_mean_loss - earlier_tokens_mean_loss).item()
+
 results = {}
 for path in sorted(glob.glob("checkpoints/step_*.pt")):
     step = int(re.search(r"step_(\d+)", path).group(1))
     model.load_state_dict(torch.load(path, map_location=device))
     results[step] = prefix_matching(model)
-    print(step, max(results[step].items(), key=lambda kv: kv[1]))
+    results[step]["icl"] = icl_score(model)
+    best = max((kv for kv in results[step].items() if kv[0].startswith("L")), key=lambda kv: kv[1])
+    print(step, best, "icl", round(results[step]["icl"], 3))
 
-json.dump(results, open("prefix_scores.json", "w"))
+json.dump(results, open(f"results/{RUN}_scores.json", "w"))
