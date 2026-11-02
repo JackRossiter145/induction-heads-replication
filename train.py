@@ -28,13 +28,14 @@ def make_batch(n):
     bos = torch.full((n, 1), BOS)
     return torch.cat([bos, first, first], dim=1)   # [BOS] + 50 random + same 50
 
-opt = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=0.01)
-os.makedirs("checkpoints", exist_ok=True)
+if __name__ == "__main__":
+    opt = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=0.01)
+    os.makedirs("checkpoints", exist_ok=True)
 
-for step in range(STEPS + 1):
-    tokens = make_batch(BATCH).to(device)
-    loss = model(tokens, return_type="loss")
-    opt.zero_grad(); loss.backward(); opt.step()
-    if step % CKPT_EVERY == 0:
-        torch.save(model.state_dict(), f"checkpoints/step_{step:05d}.pt")
-        print(f"step {step:5d}  loss {loss.item():.3f}")
+    for step in range(STEPS + 1):
+        tokens = make_batch(BATCH).to(device)
+        loss = model(tokens, return_type="loss")
+        opt.zero_grad(); loss.backward(); opt.step()
+        if step % CKPT_EVERY == 0:
+            torch.save(model.state_dict(), f"checkpoints/step_{step:05d}.pt")
+            print(f"step {step:5d}  loss {loss.item():.3f}")
