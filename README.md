@@ -69,6 +69,14 @@ Returning to zero: ICL score returns to zero after induction heads form because 
 
 Lesson: The score being zero before and after the spike are for very different reasons. In the first case the model is equally 'bad' at predicting the tokens and in the second the model is equally 'good' at predicting the tokens but our metric treats the cases as the same. So, our chosen metric is able to detect the transition, not the capability. On natural text later positions keep gaining from more context, so the late–early gap persists; here one prior occurrence is all the useful context there is, so the gap closes as soon as the head works.
 
+### Which heads
+Numbers: at step 3000 L1H0–H3 are 0.93 / 0.95 / 0.96 / 0.92; by 1000 all four are >0.9. L1H2 "wins" but only 0.03, which is within noise.
+
+Explanation: the model has no MLPs and the first copy of the data is unpredictable so induction is likely the only useful computation which is why every layer 1 head forms an induction head. In Olsson's original paper natural-text models were used and so heads had to compete for different jobs, which explains the difference between my results and Olsson's.
+
+Figure: `results/run3_plot.png` plots the layer-1 mean with individual heads faint. The earlier L1H2-highlighted version is in history (`17406f0`).
+
+Layer 0: all four heads stay ~0.02 throughout which is expected as they cannot be induction heads (a layer 0 head has no access to the previous token). The hypothesis is that they are the previous-token part of the induction circuit but this is not yet verified (previous-token score to follow).
 
 ## Reproduce
 
