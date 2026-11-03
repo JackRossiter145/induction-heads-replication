@@ -31,8 +31,7 @@ repeat offset is always 50, "attend to position t−49" is a purely positional
 rule learnable from positional embeddings alone. It gives the same loss and
 the same prefix-matching score as real induction, with none of the mechanism.
 
-Lesson for the eval question: a behavioural metric matched the target
-capability while the mechanism was absent. Run 2 breaks the regularity.
+Lesson: a behavioural metric matched the target capability while the mechanism was absent. Run 2 breaks the regularity.
 
 ## Run 2 — variable prefix, fixed repeat distance (shortcut survived)
 
