@@ -1,5 +1,6 @@
 import json
 from matplotlib import pyplot as plt
+import numpy as np
 
 with open('results/run3_scores.json', 'r') as x:
     results = json.load(x)
@@ -20,16 +21,10 @@ for k, v in sorted(results.items()):
 
 fig, ax1 = plt.subplots(figsize=(10, 6))
 
+layer_1_scores = []
 for head, scores in head_scores.items():
-    if head == "L1H2":
-        ax1.plot(
-            steps, scores,
-            color='tab:blue',
-            linewidth=2.5,
-            label=head,
-            zorder=3
-        )
-    elif head.startswith("L1"):
+    if head.startswith("L1"):
+        layer_1_scores.append(scores)
         ax1.plot(
             steps, scores,
             color='tab:blue',
@@ -44,7 +39,15 @@ for head, scores in head_scores.items():
             alpha=0.3,
             linewidth=1.2,
             label="Layer 0 Heads" if head == "L0H0" else None
-            )
+        )
+layer_1_mean = np.mean(layer_1_scores, axis=0)
+ax1.plot(
+    steps, layer_1_mean, 
+    color='tab:blue',
+    linewidth=2.5,
+    label="Layer 1 Mean",
+    zorder=3
+)
 
 ax1.set_xlabel('Steps')
 ax1.set_ylabel('Prefix Matching Score')
