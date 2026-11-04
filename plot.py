@@ -30,7 +30,7 @@ for head, scores in head_scores.items():
             color='tab:blue',
             alpha=0.3,
             linewidth=1.2,
-            label="Other Layer 1 Heads" if head == "L1H0" else None
+            label="Layer 1 Heads" if head == "L1H0" else None
         )
     else:
         ax1.plot(
