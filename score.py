@@ -1,4 +1,4 @@
-# score.py — prefix-matching score per head, per checkpoint
+# score.py — prefix-matching, icl, and previous-token score per head, per checkpoint
 import torch, glob, re, json
 from train import cfg, make_batch, SEQ, device
 from transformer_lens import HookedTransformer
@@ -41,13 +41,29 @@ def icl_score(model):
     later_tokens_mean_loss = torch.stack(later_tokens_loss).mean()
     return (later_tokens_mean_loss - earlier_tokens_mean_loss).item()
 
+def prev_token(model):
+    _, cache = model.run_with_cache(eval_tokens, return_type=None)
+    scores = {}
+    for layer in range(cfg.n_layers):
+        pattern = cache["pattern", layer].cpu()   # [batch, head, q, k]
+        vals = []
+        for q in range(2, 41):                         
+            k = q - 1
+            vals.append(pattern[:, :, q, k])      # [batch, head]
+        attn = torch.stack(vals, dim=-1)          # [batch, head, q]
+        for h in range(cfg.n_heads):
+            scores[f"prev_L{layer}H{h}"] = attn[:, h].mean().item()
+    return scores
+
 results = {}
 for path in sorted(glob.glob("checkpoints/step_*.pt")):
     step = int(re.search(r"step_(\d+)", path).group(1))
     model.load_state_dict(torch.load(path, map_location=device))
     results[step] = prefix_matching(model)
     results[step]["icl"] = icl_score(model)
+    results[step].update(prev_token(model))
     best = max((kv for kv in results[step].items() if kv[0].startswith("L")), key=lambda kv: kv[1])
-    print(step, best, "icl", round(results[step]["icl"], 3))
+    best_prev_token = max((kv for kv in results[step].items() if kv[0].startswith("prev_")), key=lambda kv: kv[1])
+    print(step, best, "icl", round(results[step]["icl"], 3), best_prev_token)
 
 json.dump(results, open(f"results/{RUN}_scores.json", "w"))

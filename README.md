@@ -11,10 +11,14 @@
 **Training:** AdamW, 3k steps, batch 64, checkpoint every 25 steps.
 
 **Metrics (per checkpoint, fixed eval batch of 256 sequences):**
-1. *Prefix-matching score* per head: mean attention from token t (second half) to the token following its earlier copy for j = 1..19 (positions all sequences share; j=0 excluded). Plot the best head across layers.
-2. *In-context learning score* per checkpoint: mean loss at late positions of the second copy (j = 15..19) minus mean loss at early positions (j = 1..5), where j indexes tokens of the second copy and L varies per sequence. Negative values mean the model predicts better with more context; Olsson et al. report this drops sharply at the same step the induction head forms. **(implemented)**
+1. *Prefix-matching score* per head: mean attention from token t (second half) to the token following its earlier copy for j = 1..19 (positions all sequences share; j=0 excluded). Plot the best head across layers. (Prefix-matching score is Olsson et al.'s term; ARENA calls this the induction score).
+2. *In-context learning score* per checkpoint: mean loss at late positions of the second copy (j = 15..19) minus mean loss at early positions (j = 1..5), where j indexes tokens of the second copy and L varies per sequence. Negative values mean the model predicts better with more context; Olsson et al. report this drops sharply at the same step the induction head forms.
+3. *Previous token score* per head: mean attention from position q to position q−1, for q = 2..40 (padding-free for every sequence, since L ≥ 20). The `prev_token_head` detector in TransformerLens/ARENA. Near 1 for a previous-token head; near 0 otherwise.
 
-**Plot:** x = training step; y = best-head prefix-matching score (left axis) and ICL score (right axis). Success = a sharp sigmoid in (1), with (2) dropping at the same step.
+**Plot:** 
+`run3_plot.png`: x = training step; y = best-head prefix-matching score (left axis) and ICL score (right axis). Success = a sharp sigmoid in (1), with (2) dropping at the same step.
+
+`run3_heads.png`: two panels: x = training step; y = prefix matching score (upper panel) and preivous token score (lower panel). Plots all 8 heads, colour-coded by layer.
 
 **Extension (not yet run):** behavioural eval — does a copying-accuracy test on held-out sequences detect the capability at the same step as the mechanistic score, or lag it?
 
@@ -58,7 +62,7 @@ Loss: plateau ~4.8 (padding predictable), drop at 775–900, floor ~2.45
 Best head L1H2: 0.05 (750), 0.13 (775), 0.35 (800), 0.63 (825), 0.83 (850),
 0.92 (900), ~0.96 thereafter. Layer 1, as composition requires.
 Transition step across runs: 250 → 475 → ~825 as each positional shortcut
-was removed.
+was removed. (all four L1 heads converge; see Which heads)
 
 ### ICL score
 ICL score: ~0 before step 700, −0.21 (725), −0.53 (775), −0.36 (800–825), −0.29 (850), −0.08 (875), back to ~0 by step 1000 and remains flat for the rest of the run.
@@ -74,9 +78,19 @@ Numbers: at step 3000 L1H0–H3 are 0.93 / 0.95 / 0.96 / 0.92; by 1000 all four 
 
 Explanation: the model has no MLPs and the first copy of the data is unpredictable so induction is likely the only useful computation which is why every layer 1 head forms an induction head. In Olsson's original paper natural-text models were used and so heads had to compete for different jobs, which explains the difference between my results and Olsson's.
 
-Figure: `results/run3_plot.png` plots the layer-1 mean with individual heads faint. The earlier L1H2-highlighted version is in history (`17406f0`).
+Figure: `results/run3_plot.png` plots the layer-1 mean with individual heads faint. The earlier L1H2-highlighted version is in history (`17406f0`). `results/run3_heads.png` plots two panels, the upper shows layer-0 and layer-1 prefix-matching scores by step while the lower shows layer-0 and layer-1 previous-token score by step.
 
-Layer 0: all four heads stay ~0.02 throughout which is expected as they cannot be induction heads (a layer 0 head has no access to the previous token). The hypothesis is that they are the previous-token part of the induction circuit but this is not yet verified (previous-token score to follow).
+Layer 0 prefix-matching score: all four heads stay ~0.02 throughout which is expected as they cannot be induction heads (a layer 0 head has no access to the previous token). 
+
+Layer 0 previous-token score: at step 3000 numbers are prev_L0H0 0.66, prev_L0H2 0.55, prev_L0H1 0.14, prev_L0H3 0.14. Timing aligns with the L1 prefix-matching rise; prev_L0H0 0.12 (750) → 0.28 (800) → 0.39 (850) → 0.50 (900) → ~0.66 (1200+) while L1H2 0.05 at 750 → 0.83 at 850.
+
+Padding correction: over positions 2–100 the score plateaued at ~0.32; over 2–40 (padding-free for every sequence, since L ≥ 20) it's ~0.66.
+
+L0H1/H3: rose to ~0.28 at 775, then settled at ~0.14 suggesting they didn't take the previous-token role. What they attend to instead is unchecked.
+
+Layer 1 previous token score: prev_L1* ~0.06–0.09 early, falling to ~0.02 by 500 and <0.01 after the transition.
+
+Conclusion: two layer-0 heads (H0, H2) become previous-token heads, rising in step with all four layer-1 induction heads. This is consistent with a two-layer composition circuit (Olsson et al.) but this is not yet verified causally.
 
 ## Reproduce
 
@@ -87,7 +101,9 @@ hence the NumPy 1.x pins in `requirements.txt`).
     pip install -r requirements.txt
     python -u train.py | tee results/run3_loss.txt
     python -u score.py | tee results/run3_scores_log.txt
+    python plot.py    
+    python plot_heads.py  
 
-Runs 1–2 data files are `results/run{1,2}_prefix_scores.json` (prefix-matching only); Run 3 is `results/run3_scores.json` (prefix-matching + ICL), written directly by `score.py`.
+Runs 1–2 data files are `results/run{1,2}_prefix_scores.json` (prefix-matching only); Run 3 is `results/run3_scores.json` (prefix-matching, ICL, and previous-token), written directly by `score.py`.
 
 Seeds are fixed (train 0, eval 1). On the same machine results match to ~4 decimal places (MPS is not bit-exact); the transition step may vary slightly across hardware.
