@@ -55,15 +55,16 @@ def prev_token(model):
             scores[f"prev_L{layer}H{h}"] = attn[:, h].mean().item()
     return scores
 
-results = {}
-for path in sorted(glob.glob("checkpoints/step_*.pt")):
-    step = int(re.search(r"step_(\d+)", path).group(1))
-    model.load_state_dict(torch.load(path, map_location=device))
-    results[step] = prefix_matching(model)
-    results[step]["icl"] = icl_score(model)
-    results[step].update(prev_token(model))
-    best = max((kv for kv in results[step].items() if kv[0].startswith("L")), key=lambda kv: kv[1])
-    best_prev_token = max((kv for kv in results[step].items() if kv[0].startswith("prev_")), key=lambda kv: kv[1])
-    print(step, best, "icl", round(results[step]["icl"], 3), best_prev_token)
+if __name__ == "__main__":
+    results = {}
+    for path in sorted(glob.glob("checkpoints/step_*.pt")):
+        step = int(re.search(r"step_(\d+)", path).group(1))
+        model.load_state_dict(torch.load(path, map_location=device))
+        results[step] = prefix_matching(model)
+        results[step]["icl"] = icl_score(model)
+        results[step].update(prev_token(model))
+        best = max((kv for kv in results[step].items() if kv[0].startswith("L")), key=lambda kv: kv[1])
+        best_prev_token = max((kv for kv in results[step].items() if kv[0].startswith("prev_")), key=lambda kv: kv[1])
+        print(step, best, "icl", round(results[step]["icl"], 3), best_prev_token)
+    json.dump(results, open(f"results/{RUN}_scores.json", "w"))
 
-json.dump(results, open(f"results/{RUN}_scores.json", "w"))
