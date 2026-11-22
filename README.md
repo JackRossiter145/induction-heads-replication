@@ -1,4 +1,7 @@
 # Induction heads replication
+
+[Extension write-up (PDF)](writeup.pdf)
+
 ## The figure
 **Target:** reproduce the induction-head phase change from Olsson et al. (2022),
 "In-context Learning and Induction Heads", at the smallest scale that shows it.
